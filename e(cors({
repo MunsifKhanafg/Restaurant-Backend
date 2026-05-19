@@ -1,0 +1,29 @@
+[33mcommit 0f07ab76c89a3bcfc640d9a4d1946ec463319284[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: Munsif Khan <munsifkhanafg@gmial.com>
+Date:   Tue May 19 23:36:44 2026 +0500
+
+    Fix :Cos allow restaurant-frontend-five-psi.vercel.app
+
+[1mdiff --git a/index.js b/index.js[m
+[1mindex 62280dc..82cd4c8 100644[m
+[1m--- a/index.js[m
+[1m+++ b/index.js[m
+[36m@@ -102,7 +102,17 @@[m [mio.on('connection', (socket) => {[m
+ });[m
+ [m
+ // Middleware[m
+[31m-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:3000', credentials: true }));[m
+[32m+[m[32mapp.use(cors({[m
+[32m+[m[32m  origin: [[m
+[32m+[m[32m    'https://restaurant-frontend-five-psi.vercel.app',[m
+[32m+[m[32m    'https://restaurant-munsifkhanafgs-projects.vercel.app',[m
+[32m+[m[32m    'http://localhost:3000',[m
+[32m+[m[32m    process.env.CLIENT_URL[m
+[32m+[m[32m  ].filter(Boolean),[m
+[32m+[m[32m  credentials: true,[m
+[32m+[m[32m  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],[m
+[32m+[m[32m  allowedHeaders: ['Content-Type', 'Authorization'][m
+[32m+[m[32m}));[m
+ app.use(express.json());[m
+ app.use(express.urlencoded({ extended: true }));[m
+ if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));[m

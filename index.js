@@ -103,12 +103,9 @@ io.on('connection', (socket) => {
 
 // Middleware
 app.use(cors({
-  origin: [
-    'https://restaurant-frontend-five-psi.vercel.app',
-    'https://restaurant-munsifkhanafgs-projects.vercel.app',
-    'http://localhost:3000',
-    process.env.CLIENT_URL
-  ].filter(Boolean),
+  origin: function(origin, callback) {
+    callback(null, true);
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
