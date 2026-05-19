@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Env
+.env
+.env.local
+
+# Uploads (local images)
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+npm-debug.log*
+*.log
+
+# Misc
+.DS_Store
