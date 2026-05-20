@@ -111,8 +111,22 @@ io.on('connection', (socket) => {
 });
 
 // Middleware
-// Ensure DB is connected on every request (critical for Vercel serverless)
+// ── CORS must be FIRST — before DB middleware, before everything ──
+const corsOptions = {
+  origin: function(origin, callback) {
+    callback(null, true); // allow all origins
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200, // some browsers (IE11) choke on 204
+};
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // handle ALL preflight OPTIONS requests immediately
+
+// Ensure DB is connected on every non-OPTIONS request (critical for Vercel serverless)
 app.use(async (req, res, next) => {
+  if (req.method === 'OPTIONS') return next(); // preflight already handled above
   try {
     await connectDB();
     next();
@@ -121,15 +135,6 @@ app.use(async (req, res, next) => {
     res.status(503).json({ success: false, message: 'Database unavailable, please try again.' });
   }
 });
-
-app.use(cors({
-  origin: function(origin, callback) {
-    callback(null, true);
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 if (process.env.NODE_ENV === 'development') app.use(morgan('dev'));
