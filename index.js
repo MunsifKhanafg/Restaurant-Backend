@@ -69,10 +69,18 @@ const app = express();
 const server = http.createServer(app);
 
 // Socket.io setup
+const ALLOWED_ORIGINS = [
+  process.env.CLIENT_URL,
+  'https://restaurant-frontend-five-psi.vercel.app',
+  'https://restaurant-frontend-git-main-munsifkhanafgs-projects.vercel.app',
+  'http://localhost:3000',
+].filter(Boolean);
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: ALLOWED_ORIGINS,
     methods: ['GET', 'POST'],
+    credentials: true,
   },
 });
 
