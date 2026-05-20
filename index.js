@@ -63,7 +63,8 @@ const autoSeed = async () => {
   }
 };
 
-connectDB().then(autoSeed);
+// Initial connection attempt + seed
+connectDB().then(autoSeed).catch(err => console.error('Startup DB error:', err.message));
 
 const app = express();
 const server = http.createServer(app);
@@ -110,6 +111,17 @@ io.on('connection', (socket) => {
 });
 
 // Middleware
+// Ensure DB is connected on every request (critical for Vercel serverless)
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('DB connection failed on request:', err.message);
+    res.status(503).json({ success: false, message: 'Database unavailable, please try again.' });
+  }
+});
+
 app.use(cors({
   origin: function(origin, callback) {
     callback(null, true);
