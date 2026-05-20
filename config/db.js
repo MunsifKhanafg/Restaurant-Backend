@@ -15,18 +15,23 @@ const connectDB = async () => {
     return;
   }
 
+  // Catch missing env var immediately — don't wait for a 10s timeout
+  if (!process.env.MONGO_URI) {
+    throw new Error('MONGO_URI environment variable is not set on this server');
+  }
+
   try {
     await mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 15000,
       socketTimeoutMS: 45000,
-      connectTimeoutMS: 10000,
+      connectTimeoutMS: 15000,
       maxPoolSize: 10,
       bufferCommands: false,
     });
-    console.log(`✅ MongoDB Connected: ${mongoose.connection.host}`);
+    console.log(`MongoDB Connected: ${mongoose.connection.host}`);
   } catch (error) {
-    console.error(`❌ MongoDB Connection Error: ${error.message}`);
-    throw error;
+    console.error(`MongoDB Connection Error: ${error.message}`);
+    throw new Error(`MongoDB failed to connect: ${error.message}`);
   }
 };
 

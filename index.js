@@ -132,7 +132,7 @@ app.use(async (req, res, next) => {
     next();
   } catch (err) {
     console.error('DB connection failed on request:', err.message);
-    res.status(503).json({ success: false, message: 'Database unavailable, please try again.' });
+    res.status(503).json({ success: false, message: `Database unavailable: ${err.message}` });
   }
 });
 app.use(express.json());
@@ -153,6 +153,18 @@ app.use('/api/restaurant-config', restaurantConfigRoutes);
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: '🍽️ Restaurant API is running', timestamp: new Date() });
+});
+
+// Temporary env debug — remove after confirming
+app.get('/api/env-check', (req, res) => {
+  res.json({
+    MONGO_URI_SET: !!process.env.MONGO_URI,
+    MONGO_URI_PREFIX: process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 30) + '...' : 'NOT SET',
+    JWT_SECRET_SET: !!process.env.JWT_SECRET,
+    NODE_ENV: process.env.NODE_ENV,
+    DB_STATE: require('mongoose').connection.readyState,
+    // readyState: 0=disconnected 1=connected 2=connecting 3=disconnecting
+  });
 });
 
 // Error handler
