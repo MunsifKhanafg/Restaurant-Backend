@@ -27,6 +27,9 @@ const connectDB = async () => {
       connectTimeoutMS: 15000,
       maxPoolSize: 10,
       bufferCommands: false,
+      tls: true,
+      tlsAllowInvalidCertificates: false,
+      tlsAllowInvalidHostnames: false,
     });
     console.log(`MongoDB Connected: ${mongoose.connection.host}`);
   } catch (error) {

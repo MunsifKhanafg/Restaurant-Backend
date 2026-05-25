@@ -27,13 +27,37 @@ router.get(
   getOrders,
 );
 
-// Single order — any authenticated user (driver, chef, etc.)
-router.get('/:id', protect, getOrder);
+// Single order — public for guest order tracking (no auth needed)
+router.get('/:id', (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) { req.user = null; return next(); }
+  return protect(req, res, next);
+}, getOrder);
 
-// Create order — any authenticated staff member
-router.post('/', protect, createOrder);
+// Create order — guests allowed WITHOUT a token; staff with a valid token get waiter attached
+router.post('/', (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  // No token at all → guest order, proceed without auth
+  if (!token) { req.user = null; return next(); }
+  // Has a token → validate it; on failure still allow (treat as guest)
+  const jwt = require('jsonwebtoken');
+  const User = require('../models/User');
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    User.findById(decoded.id).select('-password').then(user => {
+      req.user = user || null;
+      next();
+    }).catch(() => { req.user = null; next(); });
+  } catch {
+    req.user = null;
+    next();
+  }
+}, createOrder);
 
-// Update order status
+// GET orders — also allow unauthenticated guests to list orders (for past-orders tab)
+router.get('/guest-orders', getOrders);
+
+// Update order status — staff or driver (protect but allow driver role)
 router.put('/:id/status', protect, updateOrderStatus);
 
 module.exports = router;
