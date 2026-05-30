@@ -27,6 +27,10 @@ router.get(
   getOrders,
 );
 
+// GET orders — unauthenticated guests can list orders (for past-orders tab)
+// MUST be declared BEFORE /:id to prevent Express matching 'guest-orders' as an :id value
+router.get('/guest-orders', getOrders);
+
 // Single order — public for guest order tracking (no auth needed)
 router.get('/:id', (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
@@ -53,9 +57,6 @@ router.post('/', (req, res, next) => {
     next();
   }
 }, createOrder);
-
-// GET orders — also allow unauthenticated guests to list orders (for past-orders tab)
-router.get('/guest-orders', getOrders);
 
 // Update order status — staff or driver (protect but allow driver role)
 router.put('/:id/status', protect, updateOrderStatus);
