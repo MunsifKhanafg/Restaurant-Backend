@@ -31,6 +31,23 @@ router.get(
 // MUST be declared BEFORE /:id to prevent Express matching 'guest-orders' as an :id value
 router.get('/guest-orders', getOrders);
 
+// Public table-status check — used by customer portal to detect occupied tables (no auth)
+router.get('/table/:tableNum/status', async (req, res) => {
+  try {
+    const Order = require('../models/Order');
+    const tableNum = parseInt(req.params.tableNum);
+    if (isNaN(tableNum)) return res.json({ occupied: false, order: null });
+    const activeOrder = await Order.findOne({
+      tableNumber: tableNum,
+      orderType:   'dine-in',
+      orderStatus: { $in: ['received', 'confirmed', 'preparing', 'ready'] },
+    }).select('_id orderStatus items createdAt customer').populate('items.product', 'cookingTime name');
+    res.json({ occupied: !!activeOrder, order: activeOrder || null });
+  } catch (err) {
+    res.status(500).json({ occupied: false, order: null });
+  }
+});
+
 // Single order — public for guest order tracking (no auth needed)
 router.get('/:id', (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];

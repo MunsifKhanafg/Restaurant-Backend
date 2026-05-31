@@ -162,10 +162,19 @@ const createOrder = asyncHandler(async (req, res) => {
    GET /api/orders
 ════════════════════════════════════════════════════════ */
 const getOrders = asyncHandler(async (req, res) => {
-  const { status, type, date, limit = 50 } = req.query;
+  const { status, orderStatus, type, orderType, tableNumber, date, limit = 50 } = req.query;
   const query = {};
-  if (status) query.orderStatus = status;
-  if (type)   query.orderType   = type;
+
+  // Support both ?status= and ?orderStatus= (single or comma-separated)
+  const statusVal = orderStatus || status;
+  if (statusVal) {
+    const statuses = statusVal.split(',').map(s => s.trim()).filter(Boolean);
+    query.orderStatus = statuses.length === 1 ? statuses[0] : { $in: statuses };
+  }
+  // Support both ?type= and ?orderType=
+  const typeVal = orderType || type;
+  if (typeVal) query.orderType = typeVal;
+  if (tableNumber) query.tableNumber = parseInt(tableNumber) || tableNumber;
   if (date) {
     const d = new Date(date);
     if (!isNaN(d)) {
