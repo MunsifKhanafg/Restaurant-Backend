@@ -256,4 +256,20 @@ const getKitchenOrders = asyncHandler(async (req, res) => {
   res.json({ success: true, data: orders });
 });
 
-module.exports = { createOrder, getOrders, getOrder, updateOrderStatus, getKitchenOrders };
+/* ════════════════════════════════════════════════════════
+   DELETE /api/orders/clear-month  — Admin only
+   Body: { year: 2025, month: 5 }  (month is 1-based)
+════════════════════════════════════════════════════════ */
+const clearMonthOrders = asyncHandler(async (req, res) => {
+  const { year, month } = req.body;
+  if (!year || !month) { res.status(400); throw new Error('year and month are required'); }
+  const y = parseInt(year);
+  const m = parseInt(month) - 1; // JS months are 0-based
+  const from = new Date(y, m, 1);
+  const to   = new Date(y, m + 1, 1);
+  const result = await Order.deleteMany({ createdAt: { $gte: from, $lt: to } });
+  res.json({ success: true, deleted: result.deletedCount,
+    message: `Deleted ${result.deletedCount} orders from ${from.toLocaleString('default', { month: 'long' })} ${y}` });
+});
+
+module.exports = { createOrder, getOrders, getOrder, updateOrderStatus, getKitchenOrders, clearMonthOrders };

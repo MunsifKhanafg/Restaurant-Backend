@@ -78,4 +78,8 @@ router.post('/', (req, res, next) => {
 // Update order status — staff or driver (protect but allow driver role)
 router.put('/:id/status', protect, updateOrderStatus);
 
+// Clear all orders for a specific month — admin only
+const { clearMonthOrders } = require('../controllers/orderController');
+router.delete('/clear-month', protect, authorize('admin', 'manager'), clearMonthOrders);
+
 module.exports = router;
