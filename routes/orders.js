@@ -31,6 +31,30 @@ router.get(
 // MUST be declared BEFORE /:id to prevent Express matching 'guest-orders' as an :id value
 router.get('/guest-orders', getOrders);
 
+// Public bulk table-status check — returns ALL currently-occupied dine-in tables (no auth)
+// Used by POS / Customer pages to show occupied markers on the table list.
+// MUST be declared BEFORE /table/:tableNum/status to avoid route collisions.
+router.get('/tables/status', async (req, res) => {
+  try {
+    const Order = require('../models/Order');
+    const activeOrders = await Order.find({
+      orderType:   'dine-in',
+      orderStatus: { $in: ['received', 'confirmed', 'preparing', 'ready'] },
+      tableNumber: { $ne: null },
+    }).select('tableNumber orderStatus createdAt');
+
+    const occupiedTables = activeOrders.map(o => ({
+      tableNumber: o.tableNumber,
+      orderStatus: o.orderStatus,
+      createdAt:   o.createdAt,
+    }));
+
+    res.json({ success: true, data: occupiedTables });
+  } catch (err) {
+    res.status(500).json({ success: false, data: [] });
+  }
+});
+
 // Public table-status check — used by customer portal to detect occupied tables (no auth)
 router.get('/table/:tableNum/status', async (req, res) => {
   try {
