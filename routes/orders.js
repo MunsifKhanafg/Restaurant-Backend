@@ -1,39 +1,50 @@
 const express = require('express');
 const router  = express.Router();
 const {
-  createOrder, getOrders, getOrder, updateOrderStatus, getKitchenOrders,
+  createOrder, addItemsToOrder, switchTable,
+  getOrders, getOrder, updateOrderStatus, getKitchenOrders, clearMonthOrders,
 } = require('../controllers/orderController');
 const { protect, authorize } = require('../middleware/auth');
 
 /*
-  IMPORTANT — order matters in Express:
-  Static paths (/kitchen) MUST be declared before param paths (/:id)
-  otherwise Express matches "kitchen" as an :id value.
+  IMPORTANT — Express route ordering:
+  Static / specific paths MUST come before dynamic param paths (/:id).
+  All DELETE/PUT statics are declared before /:id wildcards.
 */
 
-// Kitchen display — only kitchen-facing roles
-router.get(
-  '/kitchen',
-  protect,
-  authorize('admin', 'manager', 'chef', 'waiter'),
-  getKitchenOrders,
-);
+/* ─────────────────────────────────────────
+   Reusable optional-auth middleware
+   Attaches req.user if a valid token is present,
+   but does NOT block the request if there is no token.
+───────────────────────────────────────────*/
+const optionalAuth = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) { req.user = null; return next(); }
+  const jwt  = require('jsonwebtoken');
+  const User = require('../models/User');
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    User.findById(decoded.id)
+      .select('-password')
+      .then(user => { req.user = user || null; next(); })
+      .catch(()  => { req.user = null;         next(); });
+  } catch {
+    req.user = null;
+    next();
+  }
+};
 
-// List orders
-router.get(
-  '/',
-  protect,
-  authorize('admin', 'manager', 'waiter'),
-  getOrders,
-);
+/* ════════════════════════════════════════
+   GET routes  (static paths first)
+════════════════════════════════════════ */
 
-// GET orders — unauthenticated guests can list orders (for past-orders tab)
-// MUST be declared BEFORE /:id to prevent Express matching 'guest-orders' as an :id value
+/* Kitchen display — staff only */
+router.get('/kitchen', protect, authorize('admin', 'manager', 'chef', 'waiter'), getKitchenOrders);
+
+/* Guest order list — no auth required */
 router.get('/guest-orders', getOrders);
 
-// Public bulk table-status check — returns ALL currently-occupied dine-in tables (no auth)
-// Used by POS / Customer pages to show occupied markers on the table list.
-// MUST be declared BEFORE /table/:tableNum/status to avoid route collisions.
+/* Occupied-tables status — public, no auth */
 router.get('/tables/status', async (req, res) => {
   try {
     const Order = require('../models/Order');
@@ -41,69 +52,78 @@ router.get('/tables/status', async (req, res) => {
       orderType:   'dine-in',
       orderStatus: { $in: ['received', 'confirmed', 'preparing', 'ready'] },
       tableNumber: { $ne: null },
-    }).select('tableNumber orderStatus createdAt');
+    }).select('tableNumber orderStatus createdAt billId');
 
-    const occupiedTables = activeOrders.map(o => ({
-      tableNumber: o.tableNumber,
-      orderStatus: o.orderStatus,
-      createdAt:   o.createdAt,
-    }));
+    /* De-duplicate: keep newest order per table */
+    const tableMap = {};
+    activeOrders.forEach(o => {
+      if (!tableMap[o.tableNumber] ||
+          new Date(o.createdAt) > new Date(tableMap[o.tableNumber].createdAt)) {
+        tableMap[o.tableNumber] = {
+          tableNumber: o.tableNumber,
+          orderStatus: o.orderStatus,
+          billId:      o.billId,
+          createdAt:   o.createdAt,
+        };
+      }
+    });
 
-    res.json({ success: true, data: occupiedTables });
+    res.json({ success: true, data: Object.values(tableMap) });
   } catch (err) {
     res.status(500).json({ success: false, data: [] });
   }
 });
 
-// Public table-status check — used by customer portal to detect occupied tables (no auth)
+/* Single-table active-order check — public, no auth */
 router.get('/table/:tableNum/status', async (req, res) => {
   try {
-    const Order = require('../models/Order');
+    const Order    = require('../models/Order');
     const tableNum = parseInt(req.params.tableNum);
     if (isNaN(tableNum)) return res.json({ occupied: false, order: null });
     const activeOrder = await Order.findOne({
       tableNumber: tableNum,
       orderType:   'dine-in',
       orderStatus: { $in: ['received', 'confirmed', 'preparing', 'ready'] },
-    }).select('_id orderStatus items createdAt customer').populate('items.product', 'cookingTime name');
+    })
+      .select('_id orderStatus items createdAt customer billId')
+      .populate('items.product', 'cookingTime name');
     res.json({ occupied: !!activeOrder, order: activeOrder || null });
   } catch (err) {
     res.status(500).json({ occupied: false, order: null });
   }
 });
 
-// Single order — public for guest order tracking (no auth needed)
-router.get('/:id', (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) { req.user = null; return next(); }
-  return protect(req, res, next);
-}, getOrder);
+/* List orders — staff only */
+router.get('/', protect, authorize('admin', 'manager', 'waiter'), getOrders);
 
-// Create order — guests allowed WITHOUT a token; staff with a valid token get waiter attached
-router.post('/', (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  // No token at all → guest order, proceed without auth
-  if (!token) { req.user = null; return next(); }
-  // Has a token → validate it; on failure still allow (treat as guest)
-  const jwt = require('jsonwebtoken');
-  const User = require('../models/User');
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    User.findById(decoded.id).select('-password').then(user => {
-      req.user = user || null;
-      next();
-    }).catch(() => { req.user = null; next(); });
-  } catch {
-    req.user = null;
-    next();
-  }
-}, createOrder);
+/* Single order — guests and staff (optional auth) */
+router.get('/:id', optionalAuth, getOrder);
 
-// Update order status — staff or driver (protect but allow driver role)
+/* ════════════════════════════════════════
+   POST routes
+════════════════════════════════════════ */
+
+/* Create order — guests allowed (optional auth) */
+router.post('/', optionalAuth, createOrder);
+
+/* ════════════════════════════════════════
+   PUT routes  (static sub-paths first, /:id last)
+════════════════════════════════════════ */
+
+/* Add items to existing active order — guests allowed */
+router.put('/:id/add-items', optionalAuth, addItemsToOrder);
+
+/* Switch table for a dine-in order — guests allowed */
+router.put('/:id/switch-table', optionalAuth, switchTable);
+
+/* Update order status — staff/driver only */
 router.put('/:id/status', protect, updateOrderStatus);
 
-// Clear all orders for a specific month — admin only
-const { clearMonthOrders } = require('../controllers/orderController');
+/* ════════════════════════════════════════
+   DELETE routes  (static paths before /:id)
+════════════════════════════════════════ */
+
+/* Clear orders for a month — admin/manager only */
 router.delete('/clear-month', protect, authorize('admin', 'manager'), clearMonthOrders);
 
 module.exports = router;

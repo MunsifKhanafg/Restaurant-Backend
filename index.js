@@ -175,12 +175,13 @@ const PORT = process.env.PORT || 5000;
 // Export for Vercel serverless
 module.exports = app;
 
-// Also listen locally (ignored by Vercel)
-if (process.env.NODE_ENV !== 'production') {
-  server.listen(PORT, () => {
-    console.log(`\n🚀 Server running on port ${PORT}`);
-    console.log(`📡 Socket.io active`);
-    console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-    console.log(`🔗 API: http://localhost:${PORT}/api/health\n`);
-  });
-}
+// Always listen — Vercel ignores this (it uses the module.exports above),
+// but locally this is what actually starts the server.
+// Previously this was gated on NODE_ENV !== 'production' which silently
+// prevented the server from starting when NODE_ENV=production was set locally.
+server.listen(PORT, () => {
+  console.log(`\n🚀 Server running on port ${PORT}`);
+  console.log(`📡 Socket.io active`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
+  console.log(`🔗 API: http://localhost:${PORT}/api/health\n`);
+});
