@@ -4,11 +4,11 @@
   "description": "Restaurant Management System — Backend API",
   "main": "index.js",
   "scripts": {
-    "start":   "node index.js",
-    "dev":     "nodemon index.js",
-    "seed":    "node utils/seeder.js",
-    "check":   "node utils/startup-check.js",
-    "ensure":  "node utils/ensure-accounts.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "seed": "node utils/seeder.js",
+    "check": "node utils/startup-check.js",
+    "ensure": "node utils/ensure-accounts.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -26,6 +26,6 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "nodemon": "^3.1.14"
   }
 }
