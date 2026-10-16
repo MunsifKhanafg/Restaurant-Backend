@@ -93,7 +93,7 @@ const createOrder = asyncHandler(async (req, res) => {
 
   const orderData = {
     orderType,
-    tableNumber: tableNumber || null,
+    tableNumber: orderType === 'dine-in' ? (tableNumber || null) : null,
     waiter:      req.user?._id || null,
     items:       enrichedItems,
     customer: {
